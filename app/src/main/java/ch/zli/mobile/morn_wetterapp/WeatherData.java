@@ -2,7 +2,7 @@ package ch.zli.mobile.morn_wetterapp;
 
 public class WeatherData {
     private String cityName;
-    private double tmep;
+    private double temp;
     private String img;
     private String weatherDesc;
     private double airPressure;
@@ -15,12 +15,12 @@ public class WeatherData {
         this.cityName = cityName;
     }
 
-    public double getTmep() {
-        return tmep;
+    public double getTemp() {
+        return temp;
     }
 
-    public void setTmep(double tmep) {
-        this.tmep = tmep;
+    public void setTemp(double temp) {
+        this.temp = temp;
     }
 
     public String getImg() {
