@@ -33,7 +33,7 @@ public class WeatherUpdateService extends Service {
                 String countryCode = "CH";
                 String language = "de";
                 WeatherData weatherData = new WeatherData();
-                String city = weatherData.getCityName();
+                String city = "Genf";
                 //Response response = client.newCall(request).execute();
                 URL url1 = new URL("https://api.openweathermap.org/data/2.5/weather?q="+city+"&APPID="+apiKey+"&units=metric"+"&lang="+language);
                 HttpURLConnection connection = (HttpURLConnection) url1.openConnection();
@@ -42,7 +42,6 @@ public class WeatherUpdateService extends Service {
                 int responseCode = connection.getResponseCode();
 
                 if (responseCode == HttpURLConnection.HTTP_OK){
-                    //String jsonData = response.body().string();
                     BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
                     StringBuilder response = new StringBuilder();
                     String line;
@@ -56,8 +55,6 @@ public class WeatherUpdateService extends Service {
                     double temperature = jsonObject.getJSONObject("main").getDouble("temp");
                     String weatherDesc = jsonObject.getJSONArray("weather").getJSONObject(0).getString("description");
                     String iconId = jsonObject.getJSONArray("weather").getJSONObject(0).getString("icon");
-                    //String iconId=jsonObject.getJSONObject("main").getString("icon");
-
 
                     weatherData.setTemp(temperature);
                     weatherData.setWeatherDesc(weatherDesc);
@@ -88,11 +85,6 @@ public class WeatherUpdateService extends Service {
             mHandler.postDelayed(this, 60*100);
         }
     };
-
-    /*
-
-
-     */
 
     @Override
     public void onCreate() {

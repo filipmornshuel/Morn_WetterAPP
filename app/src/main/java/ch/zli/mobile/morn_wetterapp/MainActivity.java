@@ -24,6 +24,7 @@ import android.media.Image;
 import android.os.Bundle;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
+import android.util.Log;
 import android.view.View;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
@@ -80,7 +81,6 @@ public class MainActivity extends AppCompatActivity{
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        searchView = findViewById(R.id.searchView);
         cityName = findViewById(R.id.cityField);
         celsiusView = findViewById(R.id.celsiusField);
         weatherConditionImg = findViewById(R.id.weatherConditionImg);
@@ -88,21 +88,19 @@ public class MainActivity extends AppCompatActivity{
         airPressureField = findViewById(R.id.airpressureVar);
         airPressureView = findViewById(R.id.airpressureField);
 
+        searchView = findViewById(R.id.searchView);
         searchView.setIconified(false);
-
+        searchView.clearFocus();
 
         sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         barometerSensor = sensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE);
 
-        setWeatherStart();
-
-
+        getWeatherData("Zürich");
 
         searchView.setOnSearchClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 searchView.requestFocus();
-
                 InputMethodManager inputMethodManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
                 inputMethodManager.showSoftInput(searchView, InputMethodManager.SHOW_IMPLICIT);
             }
@@ -112,6 +110,7 @@ public class MainActivity extends AppCompatActivity{
             @Override
             public boolean onQueryTextSubmit(String city) {
                 getWeatherData(city);
+                searchView.setIconified(true);
                 return true;
             }
 
@@ -125,6 +124,9 @@ public class MainActivity extends AppCompatActivity{
     @Override
     protected void onResume() {
         super.onResume();
+
+        IntentFilter filter = new IntentFilter("Wetterupdate");
+        registerReceiver(mBroadcastReceiver, filter);
         //sensorManager.registerListener(MainActivity.this, barometerSensor, SensorManager.SENSOR_DELAY_NORMAL);
         sensorManager.registerListener(new SensorEventListener() {
             @Override
@@ -141,8 +143,7 @@ public class MainActivity extends AppCompatActivity{
             }
         }, barometerSensor, SensorManager.SENSOR_DELAY_NORMAL);
 
-        IntentFilter filter = new IntentFilter("Wetterupdate");
-        registerReceiver(mBroadcastReceiver, filter);
+
     }
 
     @Override
@@ -162,146 +163,31 @@ public class MainActivity extends AppCompatActivity{
         });
     }
 
-    private void setWeatherStart(){
-        String apiKey = "4b90aa4b9b7faffcfae5b982f1ae1d45";
-        String countryCode = "CH";
-        String language = "de";
+    private void getWeatherData(String cityNameWeather){
         Thread thread = new Thread(new Runnable() {
             @Override
             public void run() {
-                try {
-                    //Response response = client.newCall(request).execute();
-                    URL url1 = new URL("https://api.openweathermap.org/data/2.5/weather?q=Zurich"+"&APPID="+apiKey+"&units=metric"+"&lang="+language);
-                    HttpURLConnection connection = (HttpURLConnection) url1.openConnection();
-                    connection.setRequestMethod("GET");
+                WeatherService weatherService = new WeatherService();
+                WeatherData weatherData = weatherService.getWeatherData(cityNameWeather);
 
-                    int responseCode = connection.getResponseCode();
-
-                    if (responseCode == HttpURLConnection.HTTP_OK){
-                        //String jsonData = response.body().string();
-                        BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-                        StringBuilder response = new StringBuilder();
-                        String line;
-
-                        while ((line = reader.readLine()) != null){
-                            response.append(line);
-                        }
-                        reader.close();
-
-                        JSONObject jsonObject = new JSONObject(response.toString());
-                        double temperature = jsonObject.getJSONObject("main").getDouble("temp");
-                        String weatherDesc = jsonObject.getJSONArray("weather").getJSONObject(0).getString("description");
-                        String iconId = jsonObject.getJSONArray("weather").getJSONObject(0).getString("icon");
-                        //String iconId=jsonObject.getJSONObject("main").getString("icon");
-
-                        WeatherData weatherData = new WeatherData();
-                        weatherData.setTemp(temperature);
-                        weatherData.setWeatherDesc(weatherDesc);
-                        weatherData.setImg(iconId);
-
-                        String iconUrl = "http://openweathermap.org/img/w/" + iconId +".png";
-
-
-                        //ImageView imageView = new ImageView(new URL("http://openweathermap.org/img/w/" + iconId +".png"));
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                cityName.setText("Zürich");
-                                celsiusView.setText(String.valueOf(temperature) + "° C");
-                                weatherConditionDesc.setText(weatherDesc);
-                                //weatherConditionImg.setImageResource();
-                                Picasso.get().load(iconUrl).into(weatherConditionImg);
-                            }
-                        });
-                    } else {
-                        //Fehlerverarbeitung
+                if (weatherData.getTemp() > 25.0){
+                    Vibrator vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+                    if (vibrator != null && vibrator.hasVibrator()){
+                        VibrationEffect vibrationEffect = VibrationEffect.createOneShot(1000, VibrationEffect.DEFAULT_AMPLITUDE);
+                        Log.i("VIBRATE", "Es vibriert");
                     }
-
-                    connection.disconnect();
-                }catch (IOException | JSONException e){
-                    e.printStackTrace();
                 }
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        cityName.setText(cityNameWeather);
+                        celsiusView.setText(weatherData.getTemp() + "° C");
+                        weatherConditionDesc.setText(weatherData.getWeatherDesc());
+                        Picasso.get().load(weatherData.getImg()).into(weatherConditionImg);
+                    }
+                });
             }
         });
-
-        thread.start();
-    }
-
-    private void getWeatherData(String cityNameWeather){
-        String apiKey = "4b90aa4b9b7faffcfae5b982f1ae1d45";
-        String countryCode = "CH";
-        String language = "de";
-
-        String url = "https://api.openweathermap.org/data/3.0/weather?q="+cityNameWeather+","+countryCode+"&APPID="+apiKey+"&units=metric";
-
-        Thread thread = new Thread(new Runnable() {
-            @Override
-            public void run() { try {
-                //Response response = client.newCall(request).execute();
-                URL url1 = new URL("https://api.openweathermap.org/data/2.5/weather?q="+cityNameWeather+"&APPID="+apiKey+"&units=metric"+"&lang="+language);
-                HttpURLConnection connection = (HttpURLConnection) url1.openConnection();
-                connection.setRequestMethod("GET");
-
-                int responseCode = connection.getResponseCode();
-
-                if (responseCode == HttpURLConnection.HTTP_OK){
-                    //String jsonData = response.body().string();
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-                    StringBuilder response = new StringBuilder();
-                    String line;
-
-                    while ((line = reader.readLine()) != null){
-                        response.append(line);
-                    }
-                    reader.close();
-
-                    JSONObject jsonObject = new JSONObject(response.toString());
-                    double temperature = jsonObject.getJSONObject("main").getDouble("temp");
-                    String weatherDesc = jsonObject.getJSONArray("weather").getJSONObject(0).getString("description");
-                    String iconId = jsonObject.getJSONArray("weather").getJSONObject(0).getString("icon");
-                    //String iconId=jsonObject.getJSONObject("main").getString("icon");
-
-                    WeatherData weatherData = new WeatherData();
-                    weatherData.setTemp(temperature);
-                    weatherData.setWeatherDesc(weatherDesc);
-                    weatherData.setImg(iconId);
-
-                    String iconUrl = "http://openweathermap.org/img/w/" + iconId +".png";
-
-                    if(temperature > 25.0){
-                        Vibrator vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
-                        if (vibrator != null && vibrator.hasVibrator()){
-                            VibrationEffect vibrationEffect = VibrationEffect.createOneShot(1000, VibrationEffect.DEFAULT_AMPLITUDE);
-
-                        }
-                    }
-
-
-                    //ImageView imageView = new ImageView(new URL("http://openweathermap.org/img/w/" + iconId +".png"));
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            cityName.setText(cityNameWeather);
-                            celsiusView.setText(String.valueOf(temperature) + "° C");
-                            weatherConditionDesc.setText(weatherDesc);
-                            //weatherConditionImg.setImageResource();
-                            Picasso.get().load(iconUrl).into(weatherConditionImg);
-
-
-                        }
-                    });
-                } else {
-                    //Fehlerverarbeitung
-                }
-
-                connection.disconnect();
-            }catch (IOException | JSONException e){
-                e.printStackTrace();
-            }
-            }
-
-        });
-
         thread.start();
     }
 
